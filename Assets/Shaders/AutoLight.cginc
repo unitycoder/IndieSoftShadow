@@ -46,32 +46,69 @@ inline fixed unitySampleShadow (float4 shadowCoord)
 
 #define TRANSFER_SHADOW(a) a._ShadowCoord = ComputeScreenPos(a.pos);
 
-inline fixed unitySampleShadow (float4 shadowCoord)
-{
-	float s = 0.02;
-//	float s2 = 0.2;
 
-/*
-	fixed shadow = tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(0.0,0,0,0))).r*0.6;
-	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(s,0,0,0))).r*0.1;
-	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(-s,0,0,0))).r*0.1;
-	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(0,s,0,0))).r*0.1;
-	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(0,-s,0,0))).r*0.1;
+
+// INDIE DIRECTIONAL SOFT SHADOWS IS HAPPENING RIGHT HERE :)
+//inline fixed unitySampleShadow (float4 shadowCoord)
+inline half unitySampleShadow (float4 shadowCoord)
+{
+
+	// basic blur effect for shadow v1.0
+
+	float blurDist = 0.02; // how far we take neighbour pixel value
+
+	float mainStrength = 0.2;
+	float subStrength = 0.1; // mainStrength+(subStrength*samples) should add up to 1
+	
+	
+//	fixed shadow = tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord)).r*mainStrength; // middle
+	half shadow = tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord)).r*mainStrength; // middle
+	
+	
+	// take neighbour samples
+	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD( shadowCoord+float4(blurDist ,0,0,0) )).r*subStrength; // right
+	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD( shadowCoord+float4(-blurDist,0,0,0) )).r*subStrength; // left
+	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD( shadowCoord+float4(0         ,blurDist,0,0) )).r*subStrength; // up
+	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD( shadowCoord+float4(0         ,-blurDist,0,0) )).r*subStrength; // down
+	
+	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD( shadowCoord+float4(blurDist  ,blurDist,0,0) )).r*subStrength; // top right
+	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD( shadowCoord+float4(-blurDist ,blurDist,0,0) )).r*subStrength; // top left
+	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD( shadowCoord+float4(-blurDist ,-blurDist,0,0) )).r*subStrength; // bottom left
+	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD( shadowCoord+float4(blurDist  ,-blurDist,0,0) )).r*subStrength; // bottom right
+	
+	
+	/* 
+	// test another way..these ones start to break if look too far..
+	float3 coord = shadowCoord.xyz / shadowCoord.w;
+	//shadow = UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord+float2(0,0) ));
+	shadow = UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord+float3(blurDist,0,0) ));
+	shadow += UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord+float3(-blurDist,0,0) ));
+	shadow += UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord+float3(0,blurDist,0) ));
+	shadow += UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord+float3(0,-blurDist,0) ));
+	
+	shadow += UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord+float3(blurDist,blurDist,0) ));
+	shadow += UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord+float3(blurDist,-blurDist,0) ));
+	shadow += UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord+float3(-blurDist,blurDist,0) ));
+	shadow += UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord+float3(-blurDist,-blurDist,0) ));
+	
+	shadow *= 0.125f;
 	*/
 	
-	float mainS = 0.2;
-	float subS = 0.1;
 	
-	fixed shadow = tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(0.0,0,0,0))).r*mainS;
-	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(s,0,0,0))).r*subS;
-	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(-s,0,0,0))).r*subS;
-	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(0,s,0,0))).r*subS;
-	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(0,-s,0,0))).r*subS;
+	/*
+	// test using unity soft shadow:
+	float3 coord = shadowCoord.xyz / shadowCoord.w;
+	float4 shadowVals;
+	shadowVals.x = UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord +float2(0,s) ));
+	shadowVals.y = UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord +float2(s,0) ));
+	shadowVals.z = UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord +float2(-s,0) ));
+	shadowVals.w = UNITY_SAMPLE_DEPTH (tex2D( _ShadowMapTexture, coord +float2(0,-s) ));
+	half4 shadows = (shadowVals < coord.zzzz) ? _LightShadowData.rrrr : 1.0f;
+	// average-4 PCF
+	half shadow = dot (shadows, 0.25f);	
+	*/
+
 	
-	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(s,s,0,0))).r*subS;
-	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(-s,s,0,0))).r*subS;
-	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(-s,-s,0,0))).r*subS;
-	shadow += tex2Dproj( _ShadowMapTexture, UNITY_PROJ_COORD(shadowCoord+float4(s,-s,0,0))).r*subS;
 	
 //	fixed shadow = UNITY_SAMPLE_SHADOW(_ShadowMapTexture, shadowCoord.xyz);
 //	shadow = _LightShadowData.r + shadow * (1-_LightShadowData.r);
@@ -121,7 +158,7 @@ inline fixed unitySampleShadow (float4 shadowCoord)
 	#endif
 
 	// average-4 PCF
-	half shadow = -1;//dot (shadows, 0.25f);
+	half shadow = dot (shadows, 0.25f);
 
 	#else
 
@@ -136,7 +173,7 @@ inline fixed unitySampleShadow (float4 shadowCoord)
 
 	#endif
 
-	return 1;//shadow;
+	return shadow;
 }
 #define SHADOW_COORDS(idx1) float4 _ShadowCoord : TEXCOORD##idx1;
 #define TRANSFER_SHADOW(a) a._ShadowCoord = mul (unity_World2Shadow[0], mul(_Object2World,v.vertex));
